@@ -1,0 +1,81 @@
+## --- HWID LOCK SECTION ---
+$allowedHWIDs = @(
+    "151159188600762", "T520NRCX003JWEMB", "B9HV782/CN7016367C02D0",
+    "200873488902085", "N104NRCX00XK7VMB", "230926211500410",
+    "180732073607414", "PPYEQ028JHF2VK", "G816710133",
+    "M519NBCV00DMDJMB", "07E0742_O11E406728", "Default string", ""
+)
+
+$currentHWID = (Get-WmiObject Win32_BaseBoard).SerialNumber
+if ($null -ne $currentHWID) { $currentHWID = $currentHWID.Trim() } else { $currentHWID = "" }
+
+if ($allowedHWIDs -notcontains $currentHWID) {
+    Write-Host "Access Interzis ($currentHWID)." -ForegroundColor Red
+    pause
+    exit
+}
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+    [DllImport("user32.dll")] public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
+    [DllImport("winmm.dll")] public static extern uint timeBeginPeriod(uint uMilliseconds);
+    [DllImport("kernel32.dll")] public static extern void Sleep(uint dwMilliseconds);
+}
+"@
+
+# 1. Force High Precision
+[Win32]::timeBeginPeriod(1)
+
+# 2. Set Process to RealTime Priority for stability
+$process = [System.Diagnostics.Process]::GetCurrentProcess()
+$process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::RealTime
+
+# 3. Optimized Data Pattern for 12-14 CPS
+# Average total delay per pair is ~77ms
+$config = @(
+    @(35,42), @(38,39), @(40,35), @(33,45), @(37,41), 
+    @(42,32), @(36,44), @(39,38), @(41,34), @(34,46),
+    @(38,40), @(35,43), @(37,39), @(40,36), @(33,44)
+)
+
+$idx = 0
+$rand = New-Object System.Random
+
+Write-Host "Target: 12-14 CPS" -ForegroundColor Cyan
+Write-Host "Press F12 to Stop." -ForegroundColor Yellow
+
+while ($true) {
+    # F12 to Exit
+    if ([Win32]::GetAsyncKeyState(0x7B) -lt 0) { break }
+
+    $doLeft  = ([Win32]::GetAsyncKeyState(0x06) -lt 0) # Mouse 4
+    $doRight = ([Win32]::GetAsyncKeyState(0x05) -lt 0) # Mouse 5
+
+    if ($doLeft -or $doRight) {
+        $pair = $config[$idx % $config.Count]
+        $idx++
+
+        # Small jitter (1-3ms) to bypass basic click-consistency checks
+        $downDelay = [Math]::Max(1, $pair[0] - $rand.Next(1,4))
+        $upDelay   = [Math]::Max(1, $pair[1] - $rand.Next(1,4))
+
+        # Mouse Down
+        if ($doLeft) { [Win32]::mouse_event(0x02, 0, 0, 0, 0) }
+        if ($doRight) { [Win32]::mouse_event(0x08, 0, 0, 0, 0) }
+        
+        [Win32]::Sleep($downDelay)
+
+        # Mouse Up
+        if ($doLeft) { [Win32]::mouse_event(0x04, 0, 0, 0, 0) }
+        if ($doRight) { [Win32]::mouse_event(0x10, 0, 0, 0, 0) }
+
+        [Win32]::Sleep($upDelay)
+    }
+    else {
+        # Idle to prevent 100% CPU usage
+        [Win32]::Sleep(1)
+    }
+}
