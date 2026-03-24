@@ -1,17 +1,13 @@
-
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public class Win32 {
     [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
-
     [DllImport("user32.dll")]
     public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
-
     [DllImport("winmm.dll")]
     public static extern uint timeBeginPeriod(uint uMilliseconds);
-
     [DllImport("kernel32.dll")]
     public static extern void Sleep(uint dwMilliseconds);
 }
@@ -22,26 +18,34 @@ public class Win32 {
 $process = [System.Diagnostics.Process]::GetCurrentProcess()
 $process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::RealTime
 
-# === 9-13 CPS CONFIG (Optimized & Humanized) ===
+# === 9-13 CPS CONFIG (Balanced Full Range) ===
+# Breakdown:
+# 12-13 CPS (Fast) → ~77-83ms total per click
+# 10-11 CPS (Mid) → ~91-100ms total per click
+# 9-10 CPS (Slow) → ~100-111ms total per click
 $config = @(
-    @(38,47), @(42,45), @(35,52), @(45,40), @(39,48), @(33,55), @(40,50), @(37,46),
-    @(44,43), @(36,53), @(41,47), @(38,49), @(46,41), @(34,57), @(43,44), @(39,51),
-    @(37,48), @(45,46), @(40,42), @(35,58), @(41,49), @(38,50), @(44,45), @(36,54),
+    # 12-13 CPS (Fast clicks to hit upper range)
+    @(35,42), @(38,39), @(36,41), @(37,40), @(34,43), @(39,38), @(33,44), @(40,37),
+    @(37,45), @(39,44), @(36,46), @(38,43), @(35,47), @(40,42), @(34,48), @(39,41),
     
-    # Recovery / Slower clicks (helps with bypass)
-    @(50,45), @(32,65), @(48,52), @(55,40), @(37,62), @(45,55), @(30,70), @(52,48),
-    @(40,58), @(47,43), @(35,63), @(49,47), @(42,60), @(38,55), @(53,41), @(36,67),
+    # 10-11 CPS (Mid range)
+    @(42,49), @(45,46), @(43,48), @(46,45), @(41,50), @(47,44), @(40,51), @(48,43),
+    @(44,47), @(46,45), @(43,49), @(47,44), @(42,50), @(48,43), @(41,51), @(45,46),
     
-    @(39,46), @(43,48), @(37,50), @(44,44), @(36,56), @(41,51), @(38,47), @(45,49),
-    @(40,53), @(34,60), @(47,46), @(39,52), @(42,49), @(36,59), @(48,44), @(41,55),
-    @(37,51), @(43,47), @(39,57), @(45,43), @(35,61), @(46,50), @(40,48), @(38,54)
+    #9-10 CPS (Slow range to hit lower end)
+    @(50,51), @(53,48), @(52,49), @(54,47), @(51,50), @(55,46), @(49,52), @(56,45),
+    @(52,50), @(55,47), @(51,51), @(56,46), @(50,52), @(57,45), @(49,53), @(58,44),
+    
+    # Mixed + Recovery clicks (safe for bypass)
+    @(37,46), @(44,47), @(50,49), @(39,44), @(46,45), @(52,48), @(36,47), @(43,48),
+    @(51,49), @(38,45), @(45,46), @(53,47), @(35,48), @(42,49), @(54,46), @(39,42)
 )
 
 $idx = 0
 $rand = New-Object System.Random
 
 Write-Host "Da-i tare 9-13 cps" -ForegroundColor Cyan
-Write-Host "Hold Mouse4 / Mouse5 to click | Press F12 to Exit" -ForegroundColor Yellow
+Write-Host "Apasa Mouse4/Mouse5 pentru a clica | Apasa F12 pentru a opri" -ForegroundColor Yellow
 
 while ($true) {
     if ([Win32]::GetAsyncKeyState(0x7B) -lt 0) { break }   # F12 to stop
@@ -53,9 +57,9 @@ while ($true) {
         $pair = $config[$idx % $config.Count]
         $idx++
 
-        # Improved jitter for more natural feel
-        $jitterDown = $rand.Next(-4, 6)
-        $jitterUp   = $rand.Next(-4, 6)
+        # Targeted jitter to keep clicks in 9-13 range
+        $jitterDown = $rand.Next(-2, 4)
+        $jitterUp   = $rand.Next(-2, 4)
         
         $downDelay = [Math]::Max(1, $pair[0] + $jitterDown)
         $upDelay   = [Math]::Max(1, $pair[1] + $jitterUp)
@@ -71,9 +75,9 @@ while ($true) {
 
         [Win32]::Sleep($upDelay)
 
-        # Occasional extra human delay (important for bypass at lower cps)
-        if ($rand.Next(1, 9) -eq 1) {
-            [Win32]::Sleep($rand.Next(12, 25))
+        # Reduced recovery delay to not drag down average
+        if ($rand.Next(1, 12) -eq 1) {
+            [Win32]::Sleep($rand.Next(10, 20))
         }
     }
     else {
@@ -81,4 +85,4 @@ while ($true) {
     }
 }
 
-Write-Host "Script stopped." -ForegroundColor Red
+Write-Host "Script oprit." -ForegroundColor Red
